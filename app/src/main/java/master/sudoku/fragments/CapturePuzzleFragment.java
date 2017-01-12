@@ -1,58 +1,101 @@
 package master.sudoku.fragments;
 
+import org.opencv.android.BaseLoaderCallback;
+import org.opencv.android.CameraBridgeViewBase;
+import org.opencv.android.LoaderCallbackInterface;
+import org.opencv.android.OpenCVLoader;
+import org.opencv.core.Mat;
+
 import android.Manifest;
-import android.content.Context;
 import android.content.pm.PackageManager;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.hardware.camera2.CameraManager;
-import android.media.Image;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.support.v4.content.ContextCompat;
 import android.view.LayoutInflater;
-import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
 
-import java.nio.ByteBuffer;
-
 import master.sudoku.R;
-import master.sudoku.camera.CameraCallback;
-import master.sudoku.ocr.matrix.ImageMatrix;
+import master.sudoku.camera.CvCameraCallback;
 import master.sudoku.ocr.util.MatrixUtil;
 import master.sudoku.widgets.ScannerBox;
 
 /**
  * Created by zhangle on 03/01/2017.
  */
-public class CapturePuzzleFragment extends Fragment implements CameraCallback.CameraFrameCallback {
+public class CapturePuzzleFragment extends Fragment implements CvCameraCallback.CvCameraFrameCallback {
 
     public static final int REQUEST_CAMERA_OPEN = 1;
-    private SurfaceView mSurfaceView;
+    private CameraBridgeViewBase mOpenCvCameraView;
     private ScannerBox mScannerBox;
-    private SurfaceHolder mSurfaceHolder;
-    private CameraCallback mCameraCallback;
+    private CvCameraCallback mCameraCallback;
     private Callback mCallback;
     private boolean mFrameChecking = false;
+
+
+    private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this.getContext()) {
+        @Override
+        public void onManagerConnected(int status) {
+            switch (status) {
+                case LoaderCallbackInterface.SUCCESS:
+                {
+                    mOpenCvCameraView.enableView();
+                } break;
+                default:
+                {
+                    super.onManagerConnected(status);
+                } break;
+            }
+        }
+    };
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
             Bundle savedInstanceState) {
         View rootView = inflater.inflate(R.layout.fragment_capture_puzzle, container,
                 false);
-        mSurfaceView = (SurfaceView) rootView.findViewById(R.id.sv_camera);
-        mSurfaceHolder = mSurfaceView.getHolder();
-        mSurfaceHolder.setKeepScreenOn(true);
+        mOpenCvCameraView = (CameraBridgeViewBase) rootView.findViewById(R.id.cv_camera);
+        mOpenCvCameraView.setVisibility(SurfaceView.VISIBLE);
 
         mScannerBox = (ScannerBox) rootView.findViewById(R.id.scanner_box);
         mScannerBox.startAnimation();
 
-        mCameraCallback = new CameraCallback(this.getContext());
+        mCameraCallback = new CvCameraCallback(this.getContext());
+        mCameraCallback.setFrameCallback(this);
         openCamera();
 
+        mOpenCvCameraView.setCvCameraViewListener(mCameraCallback);
+
         return rootView;
+    }
+
+    @Override
+    public void onPause()
+    {
+        super.onPause();
+        if (mOpenCvCameraView != null)
+            mOpenCvCameraView.disableView();
+    }
+    @Override
+    public void onResume()
+    {
+        super.onResume();
+        try {
+            if (!OpenCVLoader.initDebug()) {
+                OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_3_0_0, this.getContext(), mLoaderCallback);
+            } else {
+                mLoaderCallback.onManagerConnected(LoaderCallbackInterface.SUCCESS);
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+
+    public void onDestroy() {
+        super.onDestroy();
+        if (mOpenCvCameraView != null)
+            mOpenCvCameraView.disableView();
     }
 
     @Override
@@ -81,14 +124,6 @@ public class CapturePuzzleFragment extends Fragment implements CameraCallback.Ca
         if (!checkPermission(Manifest.permission.CAMERA, REQUEST_CAMERA_OPEN)) {
             return;
         }
-        CameraManager mgr = (CameraManager) this.getContext().getSystemService(Context.CAMERA_SERVICE);
-        try {
-            String[] idList = mgr.getCameraIdList();
-            mgr.openCamera(idList[0], mCameraCallback, null);
-            mSurfaceHolder.addCallback(mCameraCallback);
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        }
     }
 
     private boolean checkPermission(String permission, int requestCode) {
@@ -99,7 +134,6 @@ public class CapturePuzzleFragment extends Fragment implements CameraCallback.Ca
             if (shouldShowRequestPermissionRationale(permission)) {
                 // Explain to the user why we need to read the contacts
             }
-
             requestPermissions(new String[]{permission}, requestCode);
             return false;
         }
@@ -107,36 +141,34 @@ public class CapturePuzzleFragment extends Fragment implements CameraCallback.Ca
     }
 
     @Override
-    public void onFrameCaptured(final Image image) {
-//        if (mFrameChecking) {
-//            return;
-//        }
-//        mFrameChecking = true;
-//        new Thread(new Runnable() {
-//            @Override
-//            public void run() {
-//                checkFrame(image);
-//                mFrameChecking = false;
-//            }
-//        }).start();
+    public void onFrameCaptured(final Mat mat) {
+        if (mFrameChecking) {
+            return;
+        }
+        mFrameChecking = true;
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                checkFrame(mat);
+                mFrameChecking = false;
+            }
+        }).start();
 
     }
 
-    private void checkFrame(Image image) {
-        ByteBuffer buffer = image.getPlanes()[0].getBuffer();
-        byte[] bytes = new byte[buffer.capacity()];
-        buffer.get(bytes);
-        Bitmap bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
-        ImageMatrix imgMatrix = new ImageMatrix(bitmap);
-        if (MatrixUtil.hasBoundary(imgMatrix)) {
-            mCameraCallback.stopCapture();
+    private void checkFrame(Mat mat) {
+        if (mat == null) {
+            return;
+        }
+        if (MatrixUtil.hasBoundary(mat)) {
+            mOpenCvCameraView.disableView();
             if (mCallback != null) {
-                mCallback.capturePuzzleDone(bitmap);
+                mCallback.capturePuzzleDone(mat);
             }
         }
     }
 
     public interface Callback {
-        void capturePuzzleDone(Bitmap bitmap);
+        void capturePuzzleDone(Mat mat);
     }
 }

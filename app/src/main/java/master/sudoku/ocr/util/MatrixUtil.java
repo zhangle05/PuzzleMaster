@@ -3,6 +3,8 @@
  */
 package master.sudoku.ocr.util;
 
+import org.opencv.core.Mat;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -36,6 +38,12 @@ public class MatrixUtil
             return false;
         }
         return true;
+    }
+
+
+    public static boolean hasBoundary(Mat cvMat) {
+        // TODO: check boundary for cv-matrix
+        return false;
     }
 
     public static BoundaryMatrix detectBoundary(ImageMatrix imgMatrix)
