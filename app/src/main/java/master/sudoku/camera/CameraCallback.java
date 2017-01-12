@@ -1,11 +1,14 @@
 package master.sudoku.camera;
 
 import android.content.Context;
+import android.graphics.ImageFormat;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureRequest;
+import android.media.Image;
+import android.media.ImageReader;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 
@@ -16,14 +19,22 @@ import java.util.List;
  * Created by zhangle on 11/01/2017.
  */
 public class CameraCallback extends CameraDevice.StateCallback implements SurfaceHolder.Callback {
+
     public static final String TAG = "CameraCallback";
+
+    private static final int sWidth = 640;
+    private static final int sHeight = 480;
+
     private final Context mContext;
 
     private android.hardware.camera2.CameraDevice mCamera;
-    private CaptureRequest.Builder mCptureRequestBuilder;
+    private CaptureRequest.Builder mCaptureRequestBuilder;
     private CameraCaptureSession mCameraCaptureSession;
 
     private SurfaceHolder mHolder;
+    private ImageReader mReader;
+
+    private CameraFrameCallback mFrameCallback;
 
     private CameraCaptureSession.StateCallback mSessionCallback = new CameraCaptureSession.StateCallback() {
 
@@ -39,6 +50,25 @@ public class CameraCallback extends CameraDevice.StateCallback implements Surfac
         }
     };
 
+    private ImageReader.OnImageAvailableListener mReaderListener = new ImageReader.OnImageAvailableListener() {
+        @Override
+        public void onImageAvailable(ImageReader reader) {
+            Image image = null;
+            try {
+                image = reader.acquireLatestImage();
+                if (mFrameCallback != null) {
+                    mFrameCallback.onFrameCaptured(image);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            } finally {
+                if (image != null) {
+                    image.close();
+                }
+            }
+        }
+    };
+
     public CameraCallback(Context context) {
         mContext = context;
     }
@@ -50,11 +80,16 @@ public class CameraCallback extends CameraDevice.StateCallback implements Surfac
                 mHolder = holder;
                 return;
             }
+            mReader = ImageReader.newInstance(sWidth, sHeight, ImageFormat.JPEG, 1);
+            mReader.setOnImageAvailableListener(mReaderListener, null);
             List<Surface> surfaceList = new ArrayList<Surface>();
             surfaceList.add(holder.getSurface());
-            mCptureRequestBuilder = mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
-            mCptureRequestBuilder.addTarget(holder.getSurface());
+            surfaceList.add(mReader.getSurface());
+            mCaptureRequestBuilder = mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+            mCaptureRequestBuilder.addTarget(holder.getSurface());
+            mCaptureRequestBuilder.addTarget(mReader.getSurface());
             mCamera.createCaptureSession(surfaceList, mSessionCallback, null);
+
         } catch (Exception ex) {
             if (mCamera != null) {
                 mCamera = null;
@@ -68,36 +103,16 @@ public class CameraCallback extends CameraDevice.StateCallback implements Surfac
         if (mCamera == null) {
             return;
         }
-//        mParameters = mCamera.getParameters();
-//        mParameters.setPictureFormat(ImageFormat.JPEG);
-//        setPictureSize(mParameters);
-//        Point previewSizePt;
-//        if (mFoundCommonSize) {
-//            previewSizePt = new Point(mParameters.getPictureSize().width,
-//                    mParameters.getPictureSize().height);
-//        } else {
-//            previewSizePt = getPreviewSize(mParameters,
-//                    mParameters.getPictureSize());
-//        }
-//
-//        if (previewSizePt.x * previewSizePt.y < SharedConstants.MIN_PICTURE_SIZE) {
-//            Camera.Size size = getBestFitSize(mParameters.getSupportedPreviewSizes());
-//            mParameters.setPreviewSize(size.width, size.height);
-//        } else {
-//            mParameters.setPreviewSize(previewSizePt.x, previewSizePt.y);
-//        }
-//        if (mContext.getPackageManager().hasSystemFeature(
-//                PackageManager.FEATURE_CAMERA_AUTOFOCUS)) {
-//            mParameters.setFocusMode(Camera.Parameters.FOCUS_MODE_AUTO);
-//        }
-//        mCamera.setParameters(mParameters);
-//        mCamera.startPreview();
+        if (!holder.getSurface().isValid()) {
+            mCamera.close();
+        }
     }
 
 
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
         if (mCamera != null) {
+            mCamera.close();
             mCamera = null;
         }
     }
@@ -108,13 +123,19 @@ public class CameraCallback extends CameraDevice.StateCallback implements Surfac
         }
     }
 
+    public void stopCapture() {
+        if(mCamera != null) {
+            mCamera.close();
+        }
+    }
+
     public void updatePreview() {
         if(null == mCamera || null == mCameraCaptureSession) {
             return;
         }
-        mCptureRequestBuilder.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO);
+        mCaptureRequestBuilder.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO);
         try {
-            mCameraCaptureSession.setRepeatingRequest(mCptureRequestBuilder.build(), null, null);
+            mCameraCaptureSession.setRepeatingRequest(mCaptureRequestBuilder.build(), null, null);
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }
@@ -135,5 +156,9 @@ public class CameraCallback extends CameraDevice.StateCallback implements Surfac
     @Override
     public void onError(CameraDevice camera, int error) {
         this.mCamera = null;
+    }
+
+    public interface CameraFrameCallback {
+        void onFrameCaptured(Image image);
     }
 }

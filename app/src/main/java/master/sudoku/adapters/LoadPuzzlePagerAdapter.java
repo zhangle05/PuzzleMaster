@@ -37,6 +37,7 @@ public class LoadPuzzlePagerAdapter extends FragmentPagerAdapter {
         switch (position) {
             case 0:
                 f = new CapturePuzzleFragment();
+                ((CapturePuzzleFragment)f).setCallback(mActivity);
                 break;
             case 1:
                 f = new LoadPuzzleFragment();

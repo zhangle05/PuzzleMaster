@@ -1,5 +1,6 @@
 package master.sudoku.activities;
 
+import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.support.v4.app.FragmentPagerAdapter;
 import android.support.v4.view.ViewPager;
@@ -10,11 +11,13 @@ import android.view.MenuItem;
 
 import master.sudoku.R;
 import master.sudoku.adapters.LoadPuzzlePagerAdapter;
+import master.sudoku.fragments.CapturePuzzleFragment;
 import master.sudoku.fragments.LoadPuzzleFragment;
 import master.sudoku.fragments.MainGameFragment;
 import master.sudoku.model.Sudoku;
 
-public class LoadPuzzleActivity extends AppCompatActivity implements LoadPuzzleFragment.Callback {
+public class LoadPuzzleActivity extends AppCompatActivity implements LoadPuzzleFragment.Callback,
+        CapturePuzzleFragment.Callback {
 
     /**
      * The {@link android.support.v4.view.PagerAdapter} that will provide
@@ -103,5 +106,12 @@ public class LoadPuzzleActivity extends AppCompatActivity implements LoadPuzzleF
         MainGameFragment fragment = (MainGameFragment)mSectionsPagerAdapter.getItem(2);
         fragment.editModel();
         mViewPager.setCurrentItem(2);
+    }
+
+    @Override
+    public void capturePuzzleDone(Bitmap bitmap) {
+        LoadPuzzleFragment fragment = (LoadPuzzleFragment)mSectionsPagerAdapter.getItem(1);
+        fragment.setImageBitmap(bitmap);
+        mViewPager.setCurrentItem(1);
     }
 }

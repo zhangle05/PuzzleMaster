@@ -18,6 +18,26 @@ import master.sudoku.ocr.matrix.ImageMatrix;
  */
 public class MatrixUtil
 {
+    public static boolean hasBoundary(ImageMatrix imgMatrix) {
+        int left = findBoundary(imgMatrix, true, true);
+        if (left == 0) {
+            return false;
+        }
+        int top = findBoundary(imgMatrix, false, true);
+        if (top == 0) {
+            return false;
+        }
+        int right = findBoundary(imgMatrix, true, false);
+        if (right == 0) {
+            return false;
+        }
+        int bottom = findBoundary(imgMatrix, false, false);
+        if (bottom == 0) {
+            return false;
+        }
+        return true;
+    }
+
     public static BoundaryMatrix detectBoundary(ImageMatrix imgMatrix)
     {
         BoundaryMatrix result = new BoundaryMatrix(imgMatrix.getDimensionX(), imgMatrix.getDimensionY());

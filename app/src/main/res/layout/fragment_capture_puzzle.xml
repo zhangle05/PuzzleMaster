@@ -8,21 +8,16 @@
     android:paddingTop="@dimen/activity_vertical_margin"
     tools:context=".fragments.CapturePuzzleFragment" >
 
-    <TextView
-        android:id="@+id/capture_puzzle_label"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/capture_puzzle"/>
-
-
     <SurfaceView
         android:id="@+id/sv_camera"
-        android:layout_width="200dp"
-        android:layout_height="200dp" />
+        android:layout_width="300dp"
+        android:layout_height="300dp"
+        android:layout_centerHorizontal="true"/>
 
     <master.sudoku.widgets.ScannerBox
         android:id="@+id/scanner_box"
-        android:layout_width="200dp"
-        android:layout_height="200dp" />
+        android:layout_width="300dp"
+        android:layout_height="300dp"
+        android:layout_centerHorizontal="true"/>
 
 </RelativeLayout>

@@ -3,7 +3,10 @@ package master.sudoku.fragments;
 import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.hardware.camera2.CameraManager;
+import android.media.Image;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.support.v4.content.ContextCompat;
@@ -13,20 +16,26 @@ import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
 
+import java.nio.ByteBuffer;
+
 import master.sudoku.R;
 import master.sudoku.camera.CameraCallback;
+import master.sudoku.ocr.matrix.ImageMatrix;
+import master.sudoku.ocr.util.MatrixUtil;
 import master.sudoku.widgets.ScannerBox;
 
 /**
  * Created by zhangle on 03/01/2017.
  */
-public class CapturePuzzleFragment extends Fragment {
+public class CapturePuzzleFragment extends Fragment implements CameraCallback.CameraFrameCallback {
 
     public static final int REQUEST_CAMERA_OPEN = 1;
     private SurfaceView mSurfaceView;
     private ScannerBox mScannerBox;
     private SurfaceHolder mSurfaceHolder;
     private CameraCallback mCameraCallback;
+    private Callback mCallback;
+    private boolean mFrameChecking = false;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
@@ -56,13 +65,16 @@ public class CapturePuzzleFragment extends Fragment {
                         && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     openCamera();
                 } else {
-
                     // permission denied, boo! Disable the
                     // functionality that depends on this permission.
                 }
                 return;
             }
         }
+    }
+
+    public void setCallback(Callback callback) {
+        mCallback = callback;
     }
 
     private void openCamera() {
@@ -94,5 +106,37 @@ public class CapturePuzzleFragment extends Fragment {
         return true;
     }
 
+    @Override
+    public void onFrameCaptured(final Image image) {
+//        if (mFrameChecking) {
+//            return;
+//        }
+//        mFrameChecking = true;
+//        new Thread(new Runnable() {
+//            @Override
+//            public void run() {
+//                checkFrame(image);
+//                mFrameChecking = false;
+//            }
+//        }).start();
 
+    }
+
+    private void checkFrame(Image image) {
+        ByteBuffer buffer = image.getPlanes()[0].getBuffer();
+        byte[] bytes = new byte[buffer.capacity()];
+        buffer.get(bytes);
+        Bitmap bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+        ImageMatrix imgMatrix = new ImageMatrix(bitmap);
+        if (MatrixUtil.hasBoundary(imgMatrix)) {
+            mCameraCallback.stopCapture();
+            if (mCallback != null) {
+                mCallback.capturePuzzleDone(bitmap);
+            }
+        }
+    }
+
+    public interface Callback {
+        void capturePuzzleDone(Bitmap bitmap);
+    }
 }

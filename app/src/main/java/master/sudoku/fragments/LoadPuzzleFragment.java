@@ -127,6 +127,11 @@ public class LoadPuzzleFragment extends Fragment {
         mCallback = callback;
     }
 
+    public void setImageBitmap(Bitmap bitmap) {
+        mImageBitmap = bitmap;
+        mImgView.setImageBitmap(mImageBitmap);
+    }
+
     private boolean checkPermission(String permission, int requestCode) {
         if (ContextCompat.checkSelfPermission(this.getActivity(), permission)
                 != PackageManager.PERMISSION_GRANTED) {
