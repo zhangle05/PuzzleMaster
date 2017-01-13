@@ -42,8 +42,23 @@ public class MatrixUtil
 
 
     public static boolean hasBoundary(Mat cvMat) {
-        // TODO: check boundary for cv-matrix
-        return false;
+        int left = findBoundary(cvMat, true, true);
+        if (left == 0) {
+            return false;
+        }
+        int top = findBoundary(cvMat, false, true);
+        if (top == 0) {
+            return false;
+        }
+        int right = findBoundary(cvMat, true, false);
+        if (right == 0) {
+            return false;
+        }
+        int bottom = findBoundary(cvMat, false, false);
+        if (bottom == 0) {
+            return false;
+        }
+        return true;
     }
 
     public static BoundaryMatrix detectBoundary(ImageMatrix imgMatrix)
@@ -78,6 +93,33 @@ public class MatrixUtil
             for (int sampleIdx = 0; sampleIdx < sampleLimit; sampleIdx++)
             {
                 int c = isHorizontal ? imgMatrix.getColor(idx, sampleIdx) : imgMatrix.getColor(sampleIdx, idx);
+                if (!ThresholdUtil.almostSameColor(ThresholdUtil.BG_COLOR, c))
+                {
+                    foreColorCount++;
+                }
+                if (foreColorCount > sampleSize) {
+                    break;
+                }
+            }
+            if (foreColorCount > sampleSize) {
+                return idx;
+            }
+        }
+        return 0;
+    }
+
+    private static int findBoundary(Mat mat, boolean isHorizontal, boolean isAscend) {
+        int limit = isHorizontal ? mat.cols() : mat.rows();
+        int sampleLimit = isHorizontal ? mat.rows() : mat.cols();
+        int sampleSize = (int)(sampleLimit * 0.6);
+        for (int i = 1; i < limit; i++)
+        {
+            int foreColorCount = 0;
+            int idx = isAscend ? i : (limit - i -1);
+            for (int sampleIdx = 1; sampleIdx < sampleLimit; sampleIdx++)
+            {
+                double[] tmp = isHorizontal ? mat.get(sampleIdx, idx) : mat.get(idx, sampleIdx);
+                int c = (int)tmp[0];
                 if (!ThresholdUtil.almostSameColor(ThresholdUtil.BG_COLOR, c))
                 {
                     foreColorCount++;

@@ -1,5 +1,10 @@
 package master.sudoku.fragments;
 
+import org.opencv.android.Utils;
+import org.opencv.core.CvType;
+import org.opencv.core.Mat;
+import org.opencv.imgproc.Imgproc;
+
 import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
@@ -122,6 +127,13 @@ public class LoadPuzzleFragment extends Fragment {
             }
         }
     }
+//
+//    @Override
+//    public void onResume() {
+//        if (mImageBitmap != null) {
+//            mImgView.setImageBitmap(mImageBitmap);
+//        }
+//    }
 
     public void setCallback(Callback callback) {
         mCallback = callback;
@@ -158,19 +170,22 @@ public class LoadPuzzleFragment extends Fragment {
     }
 
     private void loadPuzzle() {
-        try {
-            if (!checkPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE, REQUEST_EXTERNAL_STORAGE_WRITE)) {
-                return;
-            }
-            ImageCutter ic = new ImageCutter(mImageBitmap);
-            ic.saveImages();
-            Sudoku model = parseModel(ic);
-            if (mCallback != null) {
-                mCallback.loadPuzzleDone(model);
-            }
-        } catch(Exception ex) {
-            ex.printStackTrace();
-        }
+        Bitmap result = this.binarization(mImageBitmap);
+        mImgView.setImageBitmap(result);
+//
+//        try {
+//            if (!checkPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE, REQUEST_EXTERNAL_STORAGE_WRITE)) {
+//                return;
+//            }
+//            ImageCutter ic = new ImageCutter(mImageBitmap);
+//            ic.saveImages();
+//            Sudoku model = parseModel(ic);
+//            if (mCallback != null) {
+//                mCallback.loadPuzzleDone(model);
+//            }
+//        } catch(Exception ex) {
+//            ex.printStackTrace();
+//        }
     }
 
     private Sudoku parseModel(ImageCutter ic) {
@@ -321,5 +336,38 @@ public class LoadPuzzleFragment extends Fragment {
 
     public interface Callback {
         void loadPuzzleDone(Sudoku model);
+    }
+
+    private Bitmap detectEdges(Bitmap bitmap) {
+        Mat rgba = new Mat();
+        Utils.bitmapToMat(bitmap, rgba);
+
+        Mat gray = new Mat(rgba.size(), CvType.CV_8UC1);
+        Imgproc.cvtColor(rgba, gray, Imgproc.COLOR_RGB2GRAY, 4);
+        Mat edges = new Mat(gray.height(), gray.width(), CvType.CV_8UC4);
+        Imgproc.Canny(gray, edges, 80, 100);
+        //Imgproc.cvtColor(edges, rgba, Imgproc.COLOR_GRAY2RGBA, 4);
+
+        try {
+            // Don't do that at home or work it's for visualization purpose.
+            Bitmap resultBitmap = Bitmap.createBitmap(edges.cols(), edges.rows(), Bitmap.Config.ARGB_8888);
+            Utils.matToBitmap(edges, resultBitmap);
+            return resultBitmap;
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+        return bitmap;
+    }
+
+    private Bitmap binarization(Bitmap bitmap) {
+        Mat rgba = new Mat();
+        Utils.bitmapToMat(bitmap, rgba);
+
+        Mat gray = new Mat(rgba.size(), CvType.CV_8UC1);
+        Imgproc.cvtColor(rgba, gray, Imgproc.COLOR_RGB2GRAY, 4);
+        Imgproc.threshold(gray, gray, 100, 255, Imgproc.THRESH_OTSU);
+        Bitmap resultBitmap = Bitmap.createBitmap(gray.cols(), gray.rows(), Bitmap.Config.ARGB_8888);
+        Utils.matToBitmap(gray, resultBitmap);
+        return resultBitmap;
     }
 }

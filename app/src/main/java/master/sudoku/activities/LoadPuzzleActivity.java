@@ -4,6 +4,7 @@ import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.core.Mat;
 
+import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.support.v4.app.FragmentPagerAdapter;
 import android.support.v4.view.ViewPager;
@@ -111,7 +112,8 @@ public class LoadPuzzleActivity extends AppCompatActivity implements LoadPuzzleF
     @Override
     public void capturePuzzleDone(Mat mat) {
         LoadPuzzleFragment fragment = (LoadPuzzleFragment)mSectionsPagerAdapter.getItem(1);
-        //fragment.setImageBitmap(bitmap);
+        Bitmap bitmap = Bitmap.createBitmap(mat.cols(), mat.rows(), Bitmap.Config.ARGB_8888);
+        fragment.setImageBitmap(bitmap);
         mViewPager.setCurrentItem(1);
     }
 }

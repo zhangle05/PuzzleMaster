@@ -5,12 +5,17 @@ import org.opencv.android.CameraBridgeViewBase;
 import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.OpenCVLoader;
 import org.opencv.core.Mat;
+import org.opencv.imgproc.Imgproc;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
 import android.support.v4.app.Fragment;
 import android.support.v4.content.ContextCompat;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.SurfaceView;
 import android.view.View;
@@ -27,11 +32,36 @@ import master.sudoku.widgets.ScannerBox;
 public class CapturePuzzleFragment extends Fragment implements CvCameraCallback.CvCameraFrameCallback {
 
     public static final int REQUEST_CAMERA_OPEN = 1;
+    public static final int FRAME_READY_MSG = 2;
     private CameraBridgeViewBase mOpenCvCameraView;
     private ScannerBox mScannerBox;
     private CvCameraCallback mCameraCallback;
     private Callback mCallback;
     private boolean mFrameChecking = false;
+    private boolean mCaptureDone = false;
+    private Handler mUiHandler = new Handler(Looper.getMainLooper()) {
+        @Override
+        public void handleMessage(Message inputMessage) {
+            switch (inputMessage.what) {
+                // The decoding is done
+                case FRAME_READY_MSG:
+                            /*
+                             * Moves the Bitmap from the task
+                             * to the View
+                             */
+                    if (mCallback != null) {
+                        mCallback.capturePuzzleDone((Mat)inputMessage.obj);
+                        mCaptureDone = true;
+                    }
+                    break;
+                default:
+                            /*
+                             * Pass along other messages from the UI
+                             */
+                    super.handleMessage(inputMessage);
+            }
+        }
+    };
 
 
     private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this.getContext()) {
@@ -81,6 +111,9 @@ public class CapturePuzzleFragment extends Fragment implements CvCameraCallback.
     public void onResume()
     {
         super.onResume();
+        if (mCaptureDone) {
+            return;
+        }
         try {
             if (!OpenCVLoader.initDebug()) {
                 OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_3_0_0, this.getContext(), mLoaderCallback);
@@ -160,11 +193,17 @@ public class CapturePuzzleFragment extends Fragment implements CvCameraCallback.
         if (mat == null) {
             return;
         }
+        Log.d("Checking frame", "mat is:" + mat);
+        // binarization
+        Imgproc.threshold(mat, mat, 100, 255, Imgproc.THRESH_OTSU);
         if (MatrixUtil.hasBoundary(mat)) {
             mOpenCvCameraView.disableView();
-            if (mCallback != null) {
-                mCallback.capturePuzzleDone(mat);
-            }
+            Message msg = new Message();
+            msg.obj = mat;
+            msg.what = FRAME_READY_MSG;
+            mUiHandler.sendMessage(msg);
+        } else {
+            Log.d("Checking frame", "no boundary found");
         }
     }
 
