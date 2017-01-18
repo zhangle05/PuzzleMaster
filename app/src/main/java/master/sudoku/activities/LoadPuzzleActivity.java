@@ -2,6 +2,7 @@ package master.sudoku.activities;
 
 import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.LoaderCallbackInterface;
+import org.opencv.android.Utils;
 import org.opencv.core.Mat;
 
 import android.graphics.Bitmap;
@@ -72,6 +73,22 @@ public class LoadPuzzleActivity extends AppCompatActivity implements LoadPuzzleF
         // Set up the ViewPager with the sections adapter.
         mViewPager = (ViewPager) findViewById(R.id.pager);
         mViewPager.setAdapter(mSectionsPagerAdapter);
+        mViewPager.addOnPageChangeListener(new ViewPager.OnPageChangeListener() {
+            @Override
+            public void onPageScrolled(int position, float positionOffset, int positionOffsetPixels) {
+            }
+
+            @Override
+            public void onPageSelected(int position) {
+                CapturePuzzleFragment fragment = (CapturePuzzleFragment)mSectionsPagerAdapter.getItem(0);
+                fragment.setActive(position == 0);
+            }
+
+            @Override
+            public void onPageScrollStateChanged(int state) {
+
+            }
+        });
 
     }
 
@@ -113,6 +130,7 @@ public class LoadPuzzleActivity extends AppCompatActivity implements LoadPuzzleF
     public void capturePuzzleDone(Mat mat) {
         LoadPuzzleFragment fragment = (LoadPuzzleFragment)mSectionsPagerAdapter.getItem(1);
         Bitmap bitmap = Bitmap.createBitmap(mat.cols(), mat.rows(), Bitmap.Config.ARGB_8888);
+        Utils.matToBitmap(mat, bitmap);
         fragment.setImageBitmap(bitmap);
         mViewPager.setCurrentItem(1);
     }

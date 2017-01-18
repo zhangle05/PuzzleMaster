@@ -5,7 +5,6 @@ import org.opencv.android.CameraBridgeViewBase;
 import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.OpenCVLoader;
 import org.opencv.core.Mat;
-import org.opencv.imgproc.Imgproc;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
@@ -15,14 +14,15 @@ import android.os.Looper;
 import android.os.Message;
 import android.support.v4.app.Fragment;
 import android.support.v4.content.ContextCompat;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Toast;
 
 import master.sudoku.R;
 import master.sudoku.camera.CvCameraCallback;
+import master.sudoku.logs.Logger;
 import master.sudoku.ocr.util.MatrixUtil;
 import master.sudoku.widgets.ScannerBox;
 
@@ -39,6 +39,17 @@ public class CapturePuzzleFragment extends Fragment implements CvCameraCallback.
     private Callback mCallback;
     private boolean mFrameChecking = false;
     private boolean mCaptureDone = false;
+    private boolean mIsActive = false;
+    private static final boolean sOpenCVLoaded;
+
+    static {
+        if (!OpenCVLoader.initDebug()) {
+            // Handle initialization error
+            sOpenCVLoaded = false;
+        } else {
+            sOpenCVLoaded = true;
+        }
+    }
     private Handler mUiHandler = new Handler(Looper.getMainLooper()) {
         @Override
         public void handleMessage(Message inputMessage) {
@@ -115,7 +126,8 @@ public class CapturePuzzleFragment extends Fragment implements CvCameraCallback.
             return;
         }
         try {
-            if (!OpenCVLoader.initDebug()) {
+            if (!sOpenCVLoaded) {
+                Toast.makeText(this.getContext(), "加载OpenCV库出错", Toast.LENGTH_LONG).show();
                 OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_3_0_0, this.getContext(), mLoaderCallback);
             } else {
                 mLoaderCallback.onManagerConnected(LoaderCallbackInterface.SUCCESS);
@@ -124,7 +136,7 @@ public class CapturePuzzleFragment extends Fragment implements CvCameraCallback.
             ex.printStackTrace();
         }
     }
-
+    @Override
     public void onDestroy() {
         super.onDestroy();
         if (mOpenCvCameraView != null)
@@ -147,6 +159,10 @@ public class CapturePuzzleFragment extends Fragment implements CvCameraCallback.
                 return;
             }
         }
+    }
+
+    public void setActive(boolean active) {
+        mIsActive = active;
     }
 
     public void setCallback(Callback callback) {
@@ -175,7 +191,7 @@ public class CapturePuzzleFragment extends Fragment implements CvCameraCallback.
 
     @Override
     public void onFrameCaptured(final Mat mat) {
-        if (mFrameChecking) {
+        if (mFrameChecking || !mIsActive) {
             return;
         }
         mFrameChecking = true;
@@ -193,17 +209,21 @@ public class CapturePuzzleFragment extends Fragment implements CvCameraCallback.
         if (mat == null) {
             return;
         }
-        Log.d("Checking frame", "mat is:" + mat);
-        // binarization
-        Imgproc.threshold(mat, mat, 100, 255, Imgproc.THRESH_OTSU);
+        Logger.getLogger().debug("Checking frame, mat is:" + mat);
+        try {
+            Thread.sleep(500);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
         if (MatrixUtil.hasBoundary(mat)) {
+            Logger.getLogger().debug("boundary found");
             mOpenCvCameraView.disableView();
             Message msg = new Message();
             msg.obj = mat;
             msg.what = FRAME_READY_MSG;
             mUiHandler.sendMessage(msg);
         } else {
-            Log.d("Checking frame", "no boundary found");
+            Logger.getLogger().debug("no boundary found");
         }
     }
 

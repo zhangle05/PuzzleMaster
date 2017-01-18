@@ -30,7 +30,7 @@ public class CvCameraCallback implements CameraBridgeViewBase.CvCameraViewListen
 
     @Override
     public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
-        Mat src = inputFrame.gray();
+        Mat src = inputFrame.rgba();
         try {
             // rotate 90º clockwise
             Core.flip(src.t(), src, 1);

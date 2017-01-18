@@ -3,6 +3,8 @@
  */
 package master.sudoku.logs;
 
+import android.util.Log;
+
 /**
  * @author dannyzha
  *
@@ -21,6 +23,6 @@ public final class Logger {
     }
 
     public void debug(String log) {
-        System.out.println(log);
+        Log.i("LOGGER", log);
     }
 }

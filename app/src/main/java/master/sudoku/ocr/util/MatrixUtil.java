@@ -3,7 +3,12 @@
  */
 package master.sudoku.ocr.util;
 
+import org.opencv.core.CvType;
 import org.opencv.core.Mat;
+import org.opencv.core.MatOfPoint;
+import org.opencv.core.MatOfPoint2f;
+import org.opencv.core.Scalar;
+import org.opencv.imgproc.Imgproc;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -11,6 +16,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
+import master.sudoku.logs.Logger;
 import master.sudoku.ocr.matrix.BoundaryMatrix;
 import master.sudoku.ocr.matrix.ImageMatrix;
 
@@ -42,23 +48,40 @@ public class MatrixUtil
 
 
     public static boolean hasBoundary(Mat cvMat) {
-        int left = findBoundary(cvMat, true, true);
-        if (left == 0) {
-            return false;
+        Mat gray = new Mat(cvMat.size(), CvType.CV_8UC1);
+        Imgproc.cvtColor(cvMat, gray, Imgproc.COLOR_RGB2GRAY, 4);
+
+        Imgproc.adaptiveThreshold(gray, gray, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY_INV, 3, 2);
+
+        List<MatOfPoint> contours = new ArrayList<MatOfPoint>();
+        Mat hierarchy = new Mat();
+        Imgproc.findContours(gray, contours, hierarchy, Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
+        int largest = 0;
+        double maxArea = 0;
+        MatOfPoint2f approx = new MatOfPoint2f();
+        for (int i = 0; i < contours.size(); i++) {
+            MatOfPoint contour = contours.get(i);
+            MatOfPoint2f  contour2f = new MatOfPoint2f( contour.toArray() );
+            double peri = Imgproc.arcLength(contour2f, true);
+            Imgproc.approxPolyDP(contour2f, approx, 0.02*peri, true);
+            if (approx.toArray().length == 4) {
+                double area = Imgproc.contourArea(contour);
+                if (area > maxArea) {
+                    maxArea = area;
+                    largest = i;
+                }
+            }
         }
-        int top = findBoundary(cvMat, false, true);
-        if (top == 0) {
-            return false;
+        hierarchy.release();
+        Scalar CONTOUR_COLOR = new Scalar(255, 0, 0, 255);
+        Imgproc.drawContours(cvMat, contours, largest, CONTOUR_COLOR, 2);
+        double imgArea = cvMat.width() * cvMat.height();
+        double areaThresh = imgArea * 0.8;
+        Logger.getLogger().debug("img area:" + imgArea + ", thresh area:" + areaThresh + ", max area:" + maxArea);
+        if (maxArea > areaThresh) {
+            return true;
         }
-        int right = findBoundary(cvMat, true, false);
-        if (right == 0) {
-            return false;
-        }
-        int bottom = findBoundary(cvMat, false, false);
-        if (bottom == 0) {
-            return false;
-        }
-        return true;
+        return false;
     }
 
     public static BoundaryMatrix detectBoundary(ImageMatrix imgMatrix)
@@ -128,6 +151,7 @@ public class MatrixUtil
                     break;
                 }
             }
+            Logger.getLogger().debug("foreColorCount:" + foreColorCount + ", sampleSize:" + sampleSize);
             if (foreColorCount > sampleSize) {
                 return idx;
             }

@@ -3,6 +3,9 @@ package master.sudoku.fragments;
 import org.opencv.android.Utils;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
+import org.opencv.core.MatOfPoint;
+import org.opencv.core.MatOfPoint2f;
+import org.opencv.core.Scalar;
 import org.opencv.imgproc.Imgproc;
 
 import android.Manifest;
@@ -24,8 +27,11 @@ import android.widget.ImageView;
 
 import java.io.File;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
 
 import master.sudoku.R;
+import master.sudoku.logs.Logger;
 import master.sudoku.model.Sudoku;
 import master.sudoku.ocr.ImageCutter;
 import master.sudoku.ocr.RecognizerNN;
@@ -365,9 +371,45 @@ public class LoadPuzzleFragment extends Fragment {
 
         Mat gray = new Mat(rgba.size(), CvType.CV_8UC1);
         Imgproc.cvtColor(rgba, gray, Imgproc.COLOR_RGB2GRAY, 4);
-        Imgproc.threshold(gray, gray, 100, 255, Imgproc.THRESH_OTSU);
-        Bitmap resultBitmap = Bitmap.createBitmap(gray.cols(), gray.rows(), Bitmap.Config.ARGB_8888);
-        Utils.matToBitmap(gray, resultBitmap);
+
+//        Imgproc.GaussianBlur(gray, gray, new Size(5, 5), 2);
+        Imgproc.adaptiveThreshold(gray, gray, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY_INV, 11, 2);
+
+
+//        Imgproc.threshold(gray, gray, 128, 255, Imgproc.THRESH_OTSU);
+
+        List<MatOfPoint> contours = new ArrayList<MatOfPoint>();
+        Mat hierarchy = new Mat();
+        Imgproc.findContours(gray, contours, hierarchy, Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
+        int largest = 0;
+        double maxArea = 0;
+        MatOfPoint2f approx = new MatOfPoint2f();
+        for (int i = 0; i < contours.size(); i++) {
+            MatOfPoint contour = contours.get(i);
+            MatOfPoint2f  contour2f = new MatOfPoint2f( contour.toArray() );
+            double peri = Imgproc.arcLength(contour2f, true);
+            Imgproc.approxPolyDP(contour2f, approx, 0.02*peri, true);
+            if (approx.toArray().length == 4) {
+                double area = Imgproc.contourArea(contour);
+                if (area > maxArea) {
+                    maxArea = area;
+                    largest = i;
+                }
+            }
+        }
+        double imgArea = gray.width() * gray.height();
+        double areaThresh = imgArea * 0.8;
+        Logger.getLogger().debug("img area:" + imgArea + ", thresh area:" + areaThresh + ", max area:" + maxArea);
+
+        Scalar CONTOUR_COLOR = new Scalar(255, 0, 0, 255);
+//        MatOfPoint contour = contours.get(largest);
+//        Rect rect = Imgproc.boundingRect(contour);
+//        Imgproc.rectangle(rgba, new Point(rect.x, rect.y), new Point(rect.x + rect.width, rect.y + rect.height), CONTOUR_COLOR, 1);
+        Imgproc.drawContours(rgba, contours, largest, CONTOUR_COLOR, 2);
+
+        Mat result = rgba;
+        Bitmap resultBitmap = Bitmap.createBitmap(result.cols(), result.rows(), Bitmap.Config.ARGB_8888);
+        Utils.matToBitmap(result, resultBitmap);
         return resultBitmap;
     }
 }
